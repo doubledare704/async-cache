@@ -1,76 +1,69 @@
-import datetime
+import time
+from functools import wraps
+from typing import Dict, Optional, Tuple, Coroutine
 
-from .key import KEY
 from .lru import LRU
+from .types import T, AsyncFunc, Callable, Any
+
+
+class TTL(LRU):
+    """Time-To-Live (TTL) cache implementation extending LRU cache."""
+
+    def __init__(self, maxsize: Optional[int] = 128, time_to_live: int = 0) -> None:
+        super().__init__(maxsize=maxsize)
+        self.time_to_live: int = time_to_live
+        self.timestamps: Dict[Any, float] = {}
+
+    async def contains(self, key: Any) -> bool:
+        async with self._lock:
+            exists = await super().contains(key)
+            if not exists:
+                return False
+            if self.time_to_live:
+                timestamp: float = self.timestamps.get(key, 0)
+                if time.time() - timestamp > self.time_to_live:
+                    del self.cache[key]
+                    del self.timestamps[key]
+                    return False
+            return True
+
+    async def set(self, key: Any, value: Any) -> None:
+        async with self._lock:
+            await super().set(key, value)
+            if self.time_to_live:
+                self.timestamps[key] = time.time()
+
+    async def clear(self) -> None:
+        async with self._lock:
+            await super().clear()
+            self.timestamps.clear()
 
 
 class AsyncTTL:
-    class _TTL(LRU):
-        def __init__(self, time_to_live, maxsize):
-            super().__init__(maxsize=maxsize)
+    """Async Time-To-Live (TTL) cache decorator."""
 
-            self.time_to_live = (
-                datetime.timedelta(seconds=time_to_live) if time_to_live else None
-            )
+    def __init__(self,
+                 time_to_live: int = 0,
+                 maxsize: Optional[int] = 128,
+                 skip_args: int = 0) -> None:
+        self.ttl: TTL = TTL(maxsize=maxsize, time_to_live=time_to_live)
+        self.skip_args: int = skip_args
 
-            self.maxsize = maxsize
+    def __call__(self, func: AsyncFunc) -> Callable[..., Coroutine[Any, Any, T]]:
+        @wraps(func)
+        async def wrapper(*args: Any, use_cache: bool = True, **kwargs: Any) -> T:
+            if not use_cache:
+                return await func(*args, **kwargs)
 
-        def __contains__(self, key):
-            if key not in self.keys():
-                return False
-            else:
-                key_expiration = super().__getitem__(key)[1]
-                if key_expiration and key_expiration < datetime.datetime.now():
-                    del self[key]
-                    return False
-                else:
-                    return True
+            key: Tuple[Any, ...] = (*args[self.skip_args:], *sorted(kwargs.items()))
 
-        def __getitem__(self, key):
-            value = super().__getitem__(key)[0]
-            return value
+            if await self.ttl.contains(key):
+                return await self.ttl.get(key)
 
-        def __setitem__(self, key, value):
-            ttl_value = (
-                (datetime.datetime.now() + self.time_to_live)
-                if self.time_to_live
-                else None
-            )
-            super().__setitem__(key, (value, ttl_value))
+            result: T = await func(*args, **kwargs)
+            await self.ttl.set(key, result)
+            return result
 
-    def __init__(self, time_to_live=60, maxsize=1024, skip_args: int = 0):
-        """
-
-        :param time_to_live: Use time_to_live as None for non expiring cache
-        :param maxsize: Use maxsize as None for unlimited size cache
-        :param skip_args: Use `1` to skip first arg of func in determining cache key
-        """
-        self.ttl = self._TTL(time_to_live=time_to_live, maxsize=maxsize)
-        self.skip_args = skip_args
-
-    def cache_clear(self):
-        """
-        Clears the TTL cache.
-
-        This method empties the cache, removing all stored
-        entries and effectively resetting the cache.
-
-        :return: None
-        """
-        self.ttl.clear()
-
-    def __call__(self, func):
-        async def wrapper(*args, use_cache=True, **kwargs):
-            key = KEY(args[self.skip_args:], kwargs)
-            if key in self.ttl and use_cache:
-                val = self.ttl[key]
-            else:
-                self.ttl[key] = await func(*args, **kwargs)
-                val = self.ttl[key]
-
-            return val
-
-        wrapper.__name__ += func.__name__
-        wrapper.__dict__['cache_clear'] = self.cache_clear
-
+        # Add cache_clear method to the wrapper
+        wrapper.cache_clear = self.ttl.clear  # type: ignore
         return wrapper

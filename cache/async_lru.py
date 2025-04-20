@@ -1,35 +1,31 @@
+from functools import wraps
+from typing import Optional, Coroutine
+
 from .key import KEY
 from .lru import LRU
+from .types import T, AsyncFunc, Callable, Any
 
 
 class AsyncLRU:
-    def __init__(self, maxsize=128):
-        """
-        :param maxsize: Use maxsize as None for unlimited size cache
-        """
-        self.lru = LRU(maxsize=maxsize)
-        
-    def cache_clear(self):
-        """
-        Clears the LRU cache.
+    """Async Least Recently Used (LRU) cache decorator."""
 
-        This method empties the cache, removing all stored
-        entries and effectively resetting the cache.
+    def __init__(self, maxsize: Optional[int] = 128) -> None:
+        self.lru: LRU = LRU(maxsize=maxsize)
 
-        :return: None
-        """
-        self.lru.clear()
+    def __call__(self, func: AsyncFunc) -> Callable[..., Coroutine[Any, Any, T]]:
+        @wraps(func)
+        async def wrapper(*args: Any, use_cache: bool = True, **kwargs: Any) -> T:
+            if not use_cache:
+                return await func(*args, **kwargs)
 
-    def __call__(self, func):
-        async def wrapper(*args, use_cache=True, **kwargs):
-            key = KEY(args, kwargs)
-            if key in self.lru and use_cache:
-                return self.lru[key]
-            else:
-                self.lru[key] = await func(*args, **kwargs)
-                return self.lru[key]
+            key: KEY = KEY(args, kwargs)
 
-        wrapper.__name__ += func.__name__
-        wrapper.__dict__['cache_clear'] = self.cache_clear
+            if await self.lru.contains(key):
+                return await self.lru.get(key)
 
+            result: T = await func(*args, **kwargs)
+            await self.lru.set(key, result)
+            return result
+
+        wrapper.cache_clear = self.lru.clear  # type: ignore
         return wrapper

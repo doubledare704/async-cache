@@ -1,19 +1,34 @@
+from asyncio import Lock
 from collections import OrderedDict
-from copy import deepcopy
+from typing import Any, Optional
 
 
-class LRU(OrderedDict):
-    def __init__(self, maxsize, *args, **kwargs):
-        self.maxsize = maxsize
-        super().__init__(*args, **kwargs)
+class LRU:
+    """Thread-safe LRU cache implementation."""
 
-    def __getitem__(self, key):
-        value = deepcopy(super().__getitem__(key))
-        self.move_to_end(key)
-        return value
+    def __init__(self, maxsize: Optional[int] = 128) -> None:
+        self.maxsize: Optional[int] = maxsize
+        self.cache: OrderedDict = OrderedDict()
+        self._lock: Lock = Lock()
 
-    def __setitem__(self, key, value):
-        super().__setitem__(key, deepcopy(value))
-        if self.maxsize and len(self) > self.maxsize:
-            oldest = next(iter(self))
-            del self[oldest]
+    async def contains(self, key: Any) -> bool:
+        async with self._lock:
+            return key in self.cache
+
+    async def get(self, key: Any) -> Any:
+        async with self._lock:
+            value: Any = self.cache.pop(key)
+            self.cache[key] = value
+            return value
+
+    async def set(self, key: Any, value: Any) -> None:
+        async with self._lock:
+            if key in self.cache:
+                self.cache.pop(key)
+            elif self.maxsize and len(self.cache) >= self.maxsize:
+                self.cache.popitem(last=False)
+            self.cache[key] = value
+
+    async def clear(self) -> None:
+        async with self._lock:
+            self.cache.clear()

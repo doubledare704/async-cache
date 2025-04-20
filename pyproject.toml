@@ -59,15 +59,27 @@ addopts = """
     --cov-report=term-missing
     --cov-report=xml
     --cov-report=html
+    --timeout=20
     -v
 """
 testpaths = ["tests"]
 python_files = ["*_test.py"]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.run]
 branch = true
 source = ["cache"]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]
+exclude_list = [
+    "tests",
+]
 
 [tool.coverage.report]
 exclude_lines = [

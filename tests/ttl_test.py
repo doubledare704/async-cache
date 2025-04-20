@@ -64,15 +64,28 @@ def cache_expiration_test():
 
 
 def test_cache_refreshing_ttl():
-    t1 = timeit('asyncio.get_event_loop().run_until_complete(short_cleanup_fn(1))',
-                globals=globals(), number=1)
-    t2 = timeit('asyncio.get_event_loop().run_until_complete(short_cleanup_fn(1))',
-                globals=globals(), number=1)
-    t3 = timeit('asyncio.get_event_loop().run_until_complete(short_cleanup_fn(1, use_cache=False))',
-                globals=globals(), number=1)
+    async def run_test():
+        # First call - cache miss
+        t1 = time.time()
+        await short_cleanup_fn(1)
+        t2 = time.time()
+        
+        # Second call - cache hit
+        await short_cleanup_fn(1)
+        t3 = time.time()
+        
+        # Third call - bypass cache
+        await short_cleanup_fn(1, use_cache=False)
+        t4 = time.time()
+        
+        return t2 - t1, t3 - t2, t4 - t3
 
-    assert t1 > t2
-    assert t1 - t3 <= 0.1
+    # Run the async test
+    t_first, t_second, t_third = asyncio.run(run_test())
+    
+    # Verify timing expectations
+    assert t_first > t_second, "Cache miss should take longer than cache hit"
+    assert abs(t_first - t_third) <= 0.1, "Cache bypass should take similar time to first call"
 
 def cache_clear_test():
     # print("call function. Cache miss.")
