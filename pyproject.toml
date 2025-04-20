@@ -1,0 +1,79 @@
+[build-system]
+requires = ["setuptools>=79.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "async-cache"
+version = "1.1.1"
+description = "A high-performance async caching solution for Python"
+authors = [
+    {name = "Rajat Singh", email = "iamsinghrajat@gmail.com"},
+]
+readme = "README.md"
+requires-python = ">=3.3"
+keywords = ["asyncio", "lru", "cache", "async", "cache", "lru-cache", "ttl"]
+license = {text = "MIT"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py38"
+
+# Enable all rules by default
+select = ["ALL"]
+ignore = [
+    "D",        # Ignore docstring rules
+    "ANN",      # Ignore type annotation rules
+    "ERA",      # Ignore eradicate rules
+    "UP037",    # Ignore quotes in type annotations
+    "PLR0913",  # Ignore too many arguments
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.pyright]
+include = ["cache", "tests"]
+exclude = ["**/node_modules", "**/__pycache__"]
+pythonVersion = "3.8"
+typeCheckingMode = "basic"
+reportMissingImports = true
+reportMissingTypeStubs = false
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+reportUnknownArgumentType = false
+
+[tool.pytest.ini_options]
+minversion = "8.0.0"
+addopts = """
+    --strict-markers
+    --strict-config
+    --cov=cache
+    --cov-report=term-missing
+    --cov-report=xml
+    --cov-report=html
+    -v
+"""
+testpaths = ["tests"]
+python_files = ["*_test.py"]
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+branch = true
+source = ["cache"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]
