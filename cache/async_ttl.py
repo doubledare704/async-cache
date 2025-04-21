@@ -1,11 +1,11 @@
 import time
-from functools import wraps
-from typing import Dict, Optional, Tuple, Coroutine
-from asyncio import Lock
+from collections.abc import Coroutine
 from copy import deepcopy
+from functools import wraps
+from typing import Any, Callable, Optional
 
 from .lru import LRU
-from .types import T, AsyncFunc, Callable, Any
+from .types import AsyncFunc
 
 
 class TTL(LRU):
@@ -14,14 +14,14 @@ class TTL(LRU):
     def __init__(self, maxsize: Optional[int] = 128, time_to_live: int = 0) -> None:
         super().__init__(maxsize=maxsize)
         self.time_to_live: int = time_to_live
-        self.timestamps: Dict[Any, float] = {}
+        self.timestamps: dict[Any, float] = {}
 
     async def contains(self, key: Any) -> bool:
         async with self._lock:
-            if not key in self.cache:
+            if key not in self.cache:
                 self._misses += 1
                 return False
-            
+
             if self.time_to_live:
                 timestamp: float = self.timestamps.get(key, 0)
                 if time.time() - timestamp > self.time_to_live:
@@ -29,7 +29,7 @@ class TTL(LRU):
                     del self.timestamps[key]
                     self._misses += 1
                     return False
-            
+
             self._hits += 1
             self.cache.move_to_end(key)
             return True
@@ -53,7 +53,7 @@ class TTL(LRU):
                 oldest_key, _ = self.cache.popitem(last=False)
                 if self.time_to_live:
                     self.timestamps.pop(oldest_key, None)
-            
+
             self.cache[key] = deepcopy(value)
             if self.time_to_live:
                 self.timestamps[key] = time.time()
@@ -69,17 +69,22 @@ class TTL(LRU):
 class AsyncTTL:
     """Async Time-To-Live (TTL) cache decorator."""
 
-    def __init__(self, maxsize: Optional[int] = 128, time_to_live: int = 0, skip_args: int = 0) -> None:
+    def __init__(
+        self,
+        maxsize: Optional[int] = 128,
+        time_to_live: int = 0,
+        skip_args: int = 0,
+    ) -> None:
         self.ttl = TTL(maxsize=maxsize, time_to_live=time_to_live)
         self.skip_args = skip_args
 
-    def __call__(self, func: AsyncFunc) -> Callable[..., Coroutine[Any, Any, T]]:
+    def __call__(self, func: AsyncFunc) -> Callable[..., Coroutine[Any, Any, Any]]:
         @wraps(func)
-        async def wrapper(*args: Any, use_cache: bool = True, **kwargs: Any) -> T:
+        async def wrapper(*args: Any, use_cache: bool = True, **kwargs: Any) -> Any:
             if not use_cache:
                 return await func(*args, **kwargs)
 
-            key: Tuple[Any, ...] = (*args[self.skip_args:], *sorted(kwargs.items()))
+            key = (*args[self.skip_args:], *sorted(kwargs.items()))
 
             try:
                 if await self.ttl.contains(key):
@@ -87,12 +92,12 @@ class AsyncTTL:
             except KeyError:
                 pass
 
-            result: T = await func(*args, **kwargs)
+            result = await func(*args, **kwargs)
             await self.ttl.set(key, result)
             return result
 
         async def cache_clear() -> None:
             await self.ttl.clear()
 
-        wrapper.cache_clear = cache_clear  # type: ignore
+        wrapper.cache_clear = cache_clear  # type: ignore[attr-defined]
         return wrapper

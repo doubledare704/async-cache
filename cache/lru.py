@@ -54,5 +54,5 @@ class LRU:
                 hits=self._hits,
                 misses=self._misses,
                 maxsize=self.maxsize,
-                currsize=len(self.cache)
+                currsize=len(self.cache),
             )

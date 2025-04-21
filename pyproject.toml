@@ -10,7 +10,7 @@ authors = [
     {name = "Rajat Singh", email = "iamsinghrajat@gmail.com"},
 ]
 readme = "README.md"
-requires-python = ">=3.3"
+requires-python = ">=3.9"
 keywords = ["asyncio", "lru", "cache", "async", "cache", "lru-cache", "ttl"]
 license = {text = "MIT"}
 classifiers = [
@@ -20,9 +20,10 @@ classifiers = [
 ]
 
 [tool.ruff]
-line-length = 88
-target-version = "py38"
+line-length = 120
+target-version = "py39"
 
+[tool.ruff.lint]
 # Enable all rules by default
 select = ["ALL"]
 ignore = [
@@ -31,6 +32,14 @@ ignore = [
     "ERA",      # Ignore eradicate rules
     "UP037",    # Ignore quotes in type annotations
     "PLR0913",  # Ignore too many arguments
+    "COM812",   # Ignore trailing comma rules (conflicts with formatter)
+    "FA100",    # Ignore future-annotations rule
+    "UP006",
+    "UP035"
+]
+exclude = [
+    "tests/",
+    "*_test.py",
 ]
 
 [tool.ruff.format]

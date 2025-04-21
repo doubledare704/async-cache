@@ -8,7 +8,7 @@ setuptools.setup(
     description="An asyncio Cache",
     long_description="""
 # A high-performance async caching solution for Python
-A lightweight, efficient caching solution designed specifically for asyncio applications. 
+A lightweight, efficient caching solution designed specifically for asyncio applications.
 Supports both LRU (Least Recently Used) and TTL (Time To Live) caching strategies with a clean, decorator-based API.
 """,
     long_description_content_type="text/x-rst",

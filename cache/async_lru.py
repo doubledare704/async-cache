@@ -1,9 +1,10 @@
+from collections.abc import Coroutine
 from functools import wraps
-from typing import Optional, Coroutine, Tuple
+from typing import Any, Callable, Optional
 
 from .lru import LRU
-from .types import T, AsyncFunc, Callable, Any
 from .stats import CacheInfo
+from .types import AsyncFunc
 
 
 class AsyncLRU:
@@ -21,18 +22,18 @@ class AsyncLRU:
         self.lru: LRU = LRU(maxsize=maxsize)
         self.skip_args: int = skip_args
 
-    def __call__(self, func: AsyncFunc) -> Callable[..., Coroutine[Any, Any, T]]:
+    def __call__(self, func: AsyncFunc) -> Callable[..., Coroutine[Any, Any, Any]]:
         @wraps(func)
-        async def wrapper(*args: Any, use_cache: bool = True, **kwargs: Any) -> T:
+        async def wrapper(*args: Any, use_cache: bool = True, **kwargs: Any) -> Any:
             if not use_cache:
                 return await func(*args, **kwargs)
 
-            key: Tuple[Any, ...] = (*args[self.skip_args:], *sorted(kwargs.items()))
+            key = (*args[self.skip_args:], *sorted(kwargs.items()))
 
             if await self.lru.contains(key):
                 return await self.lru.get(key)
 
-            result: T = await func(*args, **kwargs)
+            result = await func(*args, **kwargs)
             await self.lru.set(key, result)
             return result
 
@@ -42,6 +43,6 @@ class AsyncLRU:
         async def cache_info() -> CacheInfo:
             return await self.lru.get_stats()
 
-        wrapper.cache_clear = cache_clear  # type: ignore
-        wrapper.cache_info = cache_info  # type: ignore
+        wrapper.cache_clear = cache_clear  # type: ignore[attr-defined]
+        wrapper.cache_info = cache_info  # type: ignore[attr-defined]
         return wrapper
