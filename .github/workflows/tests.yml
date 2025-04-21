@@ -29,9 +29,3 @@ jobs:
       - name: Run tests
         run: |
           pytest
-          
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage.xml
-          fail_ci_if_error: true
