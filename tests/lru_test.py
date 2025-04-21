@@ -1,6 +1,5 @@
 import asyncio
 import time
-from timeit import timeit
 
 from cache import AsyncLRU, AsyncTTL
 
@@ -83,18 +82,31 @@ async def _test_skip_args():
 
 def test_skip_args():
     async def run_test():
-        try:
-            # Run tasks sequentially
-            result1 = await TestClassFunc.skip_arg_func(5, 2)
-            result2 = await TestClassFunc.skip_arg_func(6, 2)
-            
-            # Verify results
-            assert result1 == result2 == 2
-            
-        except Exception as e:
-            raise AssertionError(f"Test failed: {str(e)}")
+        # First call with arg=5
+        t1 = time.time()
+        result1 = await TestClassFunc.skip_arg_func(5, 2)
+        t2 = time.time()
+        
+        # Second call with different first arg but same second arg
+        result2 = await TestClassFunc.skip_arg_func(6, 2)
+        t3 = time.time()
+        
+        # Verify results and timing
+        assert result1 == result2 == 2, f"Expected both results to be 2, got {result1} and {result2}"
+        
+        # First call should take ~2 seconds (cache miss)
+        assert t2 - t1 >= 1.9, f"First call took {t2-t1}s, expected ~2s"
+        
+        # Second call should be fast (cache hit)
+        assert t3 - t2 < 0.1, f"Second call took {t3-t2}s, expected < 0.1s"
 
-    asyncio.run(run_test())
+    # Use a timeout to prevent hanging
+    try:
+        asyncio.run(asyncio.wait_for(run_test(), timeout=5.0))
+    except asyncio.TimeoutError:
+        raise AssertionError("Test timed out after 5 seconds")
+    except Exception as e:
+        raise AssertionError(f"Test failed: {str(e)}")
 
 
 def test_cache_refreshing_lru():
@@ -137,7 +149,7 @@ def test_cache_clear():
         second_duration = t3 - t2
         
         # Clear cache
-        cache_clear_fn.cache_clear()
+        await cache_clear_fn.cache_clear()  # Now properly awaiting the coroutine
         await asyncio.sleep(0.1)  # Ensure cache clear takes effect
         
         # Third call - should be cache miss
@@ -155,3 +167,35 @@ def test_cache_clear():
     assert t_first >= 1, f"First call (cache miss) should take >= 1s, took {t_first}s"
     assert t_second < 0.1, f"Second call (cache hit) should be fast, took {t_second}s"
     assert t_third >= 1, f"Third call (after cache clear) should take >= 1s, took {t_third}s"
+
+
+def test_cache_deep_copy():
+    async def run_test():
+        # Create a mutable object to cache
+        data = {'count': 0}
+        
+        @AsyncLRU(maxsize=128)
+        async def get_data():
+            return data
+        
+        # First call - get the original data
+        result1 = await get_data()
+        
+        # Modify the returned data
+        result1['count'] += 1
+        
+        # Second call - should get a fresh copy
+        result2 = await get_data()
+        
+        # Verify that the modification to result1 didn't affect result2
+        assert result1['count'] == 1
+        assert result2['count'] == 0
+        
+        # Modify original data
+        data['count'] = 5
+        
+        # Third call - should still get the originally cached copy
+        result3 = await get_data()
+        assert result3['count'] == 0
+
+    asyncio.run(run_test())

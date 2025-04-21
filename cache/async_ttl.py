@@ -1,6 +1,7 @@
 import time
 from functools import wraps
 from typing import Dict, Optional, Tuple, Coroutine
+from asyncio import Lock
 
 from .lru import LRU
 from .types import T, AsyncFunc, Callable, Any
@@ -13,6 +14,7 @@ class TTL(LRU):
         super().__init__(maxsize=maxsize)
         self.time_to_live: int = time_to_live
         self.timestamps: Dict[Any, float] = {}
+        self._lock = Lock()
 
     async def contains(self, key: Any) -> bool:
         async with self._lock:
@@ -26,6 +28,10 @@ class TTL(LRU):
                     del self.timestamps[key]
                     return False
             return True
+
+    async def get(self, key: Any) -> Any:
+        async with self._lock:
+            return await super().get(key)
 
     async def set(self, key: Any, value: Any) -> None:
         async with self._lock:
@@ -58,12 +64,17 @@ class AsyncTTL:
             key: Tuple[Any, ...] = (*args[self.skip_args:], *sorted(kwargs.items()))
 
             if await self.ttl.contains(key):
-                return await self.ttl.get(key)
+                try:
+                    return await self.ttl.get(key)
+                except Exception:
+                    pass
 
             result: T = await func(*args, **kwargs)
-            await self.ttl.set(key, result)
+            try:
+                await self.ttl.set(key, result)
+            except Exception:
+                pass
             return result
 
-        # Add cache_clear method to the wrapper
         wrapper.cache_clear = self.ttl.clear  # type: ignore
         return wrapper

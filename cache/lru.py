@@ -12,23 +12,19 @@ class LRU:
         self._lock: Lock = Lock()
 
     async def contains(self, key: Any) -> bool:
-        async with self._lock:
-            return key in self.cache
+        return key in self.cache
 
     async def get(self, key: Any) -> Any:
-        async with self._lock:
-            value: Any = self.cache.pop(key)
-            self.cache[key] = value
-            return value
+        value: Any = self.cache.pop(key)
+        self.cache[key] = value
+        return value
 
     async def set(self, key: Any, value: Any) -> None:
-        async with self._lock:
-            if key in self.cache:
-                self.cache.pop(key)
-            elif self.maxsize and len(self.cache) >= self.maxsize:
-                self.cache.popitem(last=False)
-            self.cache[key] = value
+        if key in self.cache:
+            self.cache.pop(key)
+        elif self.maxsize and len(self.cache) >= self.maxsize:
+            self.cache.popitem(last=False)
+        self.cache[key] = value
 
     async def clear(self) -> None:
-        async with self._lock:
-            self.cache.clear()
+        self.cache.clear()
