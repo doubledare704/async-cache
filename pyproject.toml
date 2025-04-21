@@ -3,21 +3,32 @@ requires = ["setuptools>=79.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "async-cache"
+name = "async-cache-ext"
 version = "1.1.1"
-description = "A high-performance async caching solution for Python"
+description = "A high-performance async caching solution for Python with extended features"
 authors = [
-    {name = "Rajat Singh", email = "iamsinghrajat@gmail.com"},
+    {name = "doubledare704", email = "doubledare704@github.com"},
 ]
 readme = "README.md"
 requires-python = ">=3.9"
 keywords = ["asyncio", "lru", "cache", "async", "cache", "lru-cache", "ttl"]
 license = {text = "MIT"}
 classifiers = [
-    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
 ]
+
+[project.urls]
+Homepage = "https://github.com/doubledare704/async-cache"
+Repository = "https://github.com/doubledare704/async-cache"
+Issues = "https://github.com/doubledare704/async-cache/issues"
 
 [tool.ruff]
 line-length = 120
