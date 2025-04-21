@@ -1,6 +1,5 @@
 import asyncio
 import time
-from timeit import timeit
 
 from cache import AsyncTTL
 
@@ -36,8 +35,6 @@ def cache_hit_test():
     t3 = time.time()
     t_first_exec = (t2 - t1) * 1000
     t_second_exec = (t3 - t2) * 1000
-    print(t_first_exec)
-    print(t_second_exec)
     assert t_first_exec > 4000
     assert t_second_exec < 4000
 
@@ -55,9 +52,6 @@ def cache_expiration_test():
     t_first_exec = (t2 - t1) * 1000
     t_second_exec = (t3 - t2) * 1000
     t_third_exec = (t5 - t4) * 1000
-    print(t_first_exec)
-    print(t_second_exec)
-    print(t_third_exec)
     assert t_first_exec > 1000
     assert t_second_exec < 1000
     assert t_third_exec > 1000
@@ -88,18 +82,14 @@ def test_cache_refreshing_ttl():
     assert abs(t_first - t_third) <= 0.1, "Cache bypass should take similar time to first call"
 
 def cache_clear_test():
-    # print("call function. Cache miss.")
     t1 = time.time()
     asyncio.get_event_loop().run_until_complete(cache_clear_fn(1))
     t2 = time.time()
-    # print("call function again. Cache hit")
     asyncio.get_event_loop().run_until_complete(cache_clear_fn(1))
     t3 = time.time()
     cache_clear_fn.cache_clear()
-    # print("Call cache_clear() to clear the cache.")
     asyncio.get_event_loop().run_until_complete(cache_clear_fn(1))
     t4 = time.time()
-    # print("call function third time. Cache miss)")
 
     assert t2 - t1 > 1, t2 - t1 # Cache miss
     assert t3 - t2 < 1, t3 - t2 # Cache hit

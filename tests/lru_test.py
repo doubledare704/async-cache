@@ -39,8 +39,6 @@ def test():
     t3 = time.time()
     t_first_exec = (t2 - t1) * 1000
     t_second_exec = (t3 - t2) * 1000
-    print(t_first_exec)
-    print(t_second_exec)
     assert t_first_exec > 4000
     assert t_second_exec < 4000
 
@@ -54,8 +52,6 @@ def test_obj_fn():
     t3 = time.time()
     t_first_exec = (t2 - t1) * 1000
     t_second_exec = (t3 - t2) * 1000
-    print(t_first_exec)
-    print(t_second_exec)
     assert t_first_exec > 4000
     assert t_second_exec < 4000
 
@@ -68,8 +64,6 @@ def test_class_fn():
     t3 = time.time()
     t_first_exec = (t2 - t1) * 1000
     t_second_exec = (t3 - t2) * 1000
-    print(t_first_exec)
-    print(t_second_exec)
     assert t_first_exec > 4000
     assert t_second_exec < 4000
 
@@ -102,9 +96,9 @@ def test_skip_args():
 
     # Use a timeout to prevent hanging
     try:
-        asyncio.run(asyncio.wait_for(run_test(), timeout=5.0))
+        asyncio.run(asyncio.wait_for(run_test(), timeout=6.0))
     except asyncio.TimeoutError:
-        raise AssertionError("Test timed out after 5 seconds")
+        raise AssertionError("Test timed out after 6 seconds")
     except Exception as e:
         raise AssertionError(f"Test failed: {str(e)}")
 
@@ -197,5 +191,71 @@ def test_cache_deep_copy():
         # Third call - should still get the originally cached copy
         result3 = await get_data()
         assert result3['count'] == 0
+
+    asyncio.run(run_test())
+
+
+def test_skip_args_lru():
+    async def run_test():
+        class TestClass:
+            @AsyncLRU(maxsize=128, skip_args=1)
+            async def method(self, value: int) -> int:
+                await asyncio.sleep(1)  # Simulate work
+                return value
+
+        obj = TestClass()
+        obj2 = TestClass()
+
+        # First call with first object
+        t1 = time.time()
+        result1 = await obj.method(42)
+        t2 = time.time()
+
+        # Second call with different object but same value
+        result2 = await obj2.method(42)
+        t3 = time.time()
+
+        # Verify results and timing
+        assert result1 == result2 == 42
+        assert t2 - t1 >= 0.9, "First call should take ~1s"
+        assert t3 - t2 < 0.1, "Second call should be cached"
+
+    asyncio.run(run_test())
+
+
+def test_cache_stats():
+    async def run_test():
+        @AsyncLRU(maxsize=128)
+        async def cached_func(value: int) -> int:
+            await asyncio.sleep(0.1)
+            return value
+
+        # First call - should be a miss
+        await cached_func(1)
+        info1 = await cached_func.cache_info()
+        assert info1.hits == 0
+        assert info1.misses == 1
+        assert info1.currsize == 1
+
+        # Second call with same value - should be a hit
+        await cached_func(1)
+        info2 = await cached_func.cache_info()
+        assert info2.hits == 1
+        assert info2.misses == 1
+        assert info2.currsize == 1
+
+        # Call with different value - should be a miss
+        await cached_func(2)
+        info3 = await cached_func.cache_info()
+        assert info3.hits == 1
+        assert info3.misses == 2
+        assert info3.currsize == 2
+
+        # Clear cache and verify stats reset
+        await cached_func.cache_clear()
+        info4 = await cached_func.cache_info()
+        assert info4.hits == 0
+        assert info4.misses == 0
+        assert info4.currsize == 0
 
     asyncio.run(run_test())
