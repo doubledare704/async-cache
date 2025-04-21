@@ -1,9 +1,5 @@
-# async-cache
-> A high-performance async caching solution for Python
-
-[![PyPI version](https://img.shields.io/pypi/v/async-cache.svg)](https://pypi.python.org/pypi/async-cache)
-[![Downloads](https://static.pepy.tech/personalized-badge/async-cache?period=total&units=international_system&left_color=black&right_color=blue&left_text=Downloads)](https://pepy.tech/project/async-cache)
-[![Security Rating](https://snyk.io/advisor/python/async-cache/badge.svg)](https://snyk.io/advisor/python/async-cache)
+# async-cache-ext
+> A high-performance async caching solution for Python with extended features
 
 A lightweight, efficient caching solution designed specifically for asyncio applications. Supports both LRU (Least Recently Used) and TTL (Time To Live) caching strategies with a clean, decorator-based API.
 
@@ -22,7 +18,7 @@ A lightweight, efficient caching solution designed specifically for asyncio appl
 ## Installation
 
 ```bash
-pip install async-cache
+pip install async-cache-ext
 ```
 
 ## Basic Usage
